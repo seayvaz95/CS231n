@@ -28,6 +28,7 @@ def svm_loss_naive(W, X, y, reg):
     num_train = X.shape[0]
     loss = 0.0
     for i in range(num_train):
+        count = 0
         scores = X[i].dot(W)
         correct_class_score = scores[y[i]]
         for j in range(num_classes):
@@ -35,15 +36,17 @@ def svm_loss_naive(W, X, y, reg):
                 continue
             margin = scores[j] - correct_class_score + 1 # note delta = 1
             if margin > 0:
+                count += 1
+                dW[:,j] += X[i]
                 loss += margin
-
+        dW[:,y[i]] += -1*count*X[i]
     # Right now the loss is a sum over all training examples, but we want it
     # to be an average instead so we divide by num_train.
     loss /= num_train
-
+    dW /= num_train
     # Add regularization to the loss.
-    loss += reg * np.sum(W * W)
-
+    loss += 0.5 * reg * np.sum(W * W)
+    dW +=  reg * W
     #############################################################################
     # TODO:                                                                     #
     # Compute the gradient of the loss function and store it dW.                #
@@ -77,9 +80,13 @@ def svm_loss_vectorized(W, X, y, reg):
     # result in loss.                                                           #
     #############################################################################
     # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
-
-    pass
-
+    num_train = X.shape[0]
+    scores = X.dot(W)
+    margins = np.maximum(0, scores - np.reshape(scores[range(num_train), y], (num_train ,1)) + 1)
+    margins[range(num_train), y] = 0
+    loss = np.sum(margins)
+    loss += 0.5 * reg * np.sum(W * W)
+    loss /= num_train
     # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
     #############################################################################
@@ -93,7 +100,15 @@ def svm_loss_vectorized(W, X, y, reg):
     #############################################################################
     # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
-    pass
+    temp = margins
+    temp[margins > 0] = 1
+    row_sum = np.sum(temp, axis=1)
+    temp[range(num_train), y] = -row_sum.T
+    dW = np.dot(X.T, temp)
+
+    dW /= num_train
+
+    dW += reg*W
 
     # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
