@@ -43,7 +43,7 @@ class TwoLayerNet(object):
         self.params['W2'] = std * np.random.randn(hidden_size, output_size)
         self.params['b2'] = np.zeros(output_size)
 
-    def loss(self, X, y=None, reg=0.0):
+    def loss(self, X, y=None, reg=0.0, p=1.0):
         """
         Compute the loss and gradients for a two layer fully connected neural
         network.
@@ -71,6 +71,7 @@ class TwoLayerNet(object):
         W2, b2 = self.params['W2'], self.params['b2']
         N, D = X.shape
 
+
         # Compute the forward pass
         scores = None
         #############################################################################
@@ -80,7 +81,12 @@ class TwoLayerNet(object):
         #############################################################################
         # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
-        pass
+        hidden_layer = np.dot(X, W1) + b1
+        hidden_layer_relu = np.maximum(0, hidden_layer)
+        #dropout
+        U1 = (np.random.rand(*hidden_layer_relu.shape) < p) / p 
+        hidden_layer_relu *= U1
+        scores = np.dot(hidden_layer_relu, W2) + b2
 
         # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
@@ -98,7 +104,11 @@ class TwoLayerNet(object):
         #############################################################################
         # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
-        pass
+        exp_scores = np.exp(scores)
+        probs = exp_scores / np.sum(exp_scores, axis=1, keepdims=True)
+        logprobs = -np.log(probs[range(N), y])
+        loss = np.sum(logprobs)/N
+        loss += 0.5*reg*np.sum(W1*W1) + 0.5*reg*np.sum(W2*W2)
 
         # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
@@ -111,7 +121,21 @@ class TwoLayerNet(object):
         #############################################################################
         # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
-        pass
+        probs[range(N), y] -= 1
+        probs /= N
+        dW2 = np.dot(hidden_layer_relu.T, probs)
+        db2 = np.sum(probs, axis=0)
+        dhidden_layer = np.dot(probs, W2.T)
+        dhidden_layer[hidden_layer <= 0] = 0
+        
+        dW1 = np.dot(X.T, dhidden_layer)
+        db1 = np.sum(dhidden_layer, axis=0)
+        
+        dW2 += reg * W2
+        dW1 += reg * W1
+        
+        grads['W1'], grads['W2'], grads['b1'], grads['b2'] = dW1, dW2, db1, db2
+        
 
         # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
@@ -120,7 +144,7 @@ class TwoLayerNet(object):
     def train(self, X, y, X_val, y_val,
               learning_rate=1e-3, learning_rate_decay=0.95,
               reg=5e-6, num_iters=100,
-              batch_size=200, verbose=False):
+              batch_size=200, p=1.0, verbose=False):
         """
         Train this neural network using stochastic gradient descent.
 
@@ -156,12 +180,14 @@ class TwoLayerNet(object):
             #########################################################################
             # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
-            pass
+            ix = np.random.choice(num_train, batch_size, replace=True)
+            X_batch = X[ix]
+            y_batch = y[ix]
 
             # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
             # Compute loss and gradients using the current minibatch
-            loss, grads = self.loss(X_batch, y=y_batch, reg=reg)
+            loss, grads = self.loss(X_batch, y=y_batch, reg=reg, p=p)
             loss_history.append(loss)
 
             #########################################################################
@@ -172,8 +198,11 @@ class TwoLayerNet(object):
             #########################################################################
             # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
-            pass
-
+            self.params['W1'] += -1 * learning_rate * grads['W1']  
+            self.params['W2'] += -1 * learning_rate * grads['W2']
+            self.params['b1'] += -1 * learning_rate * grads['b1'] 
+            self.params['b2'] += -1 * learning_rate * grads['b2']
+            
             # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
             if verbose and it % 100 == 0:
@@ -218,7 +247,9 @@ class TwoLayerNet(object):
         ###########################################################################
         # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
-        pass
+        hidden_layer_relu = np.maximum(0, np.dot(X, self.params['W1']) + self.params['b1'])
+        scores = np.dot(hidden_layer_relu, self.params['W2']) + self.params['b2']
+        y_pred = np.argmax(scores, axis=1)
 
         # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
